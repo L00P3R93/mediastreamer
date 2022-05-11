@@ -20,6 +20,11 @@ import { ServerStyleSheets, ThemeProvider } from '@material-ui/styles'
 import theme from './../client/theme'
 //end
 
+//For SSR with data
+import { matchRoutes } from 'react-router-config'
+import routes from './../client/routeConfig'
+import 'isomorphic-fetch'
+
 //comment out before building for production
 import devBundle from './devBundle'
 
@@ -28,6 +33,15 @@ const app = express()
 
 //comment out before building for production
 devBundle.compile(app)
+
+//For SSR with data
+const loadBranchData = (location) => {
+	const branch = matchRoutes(routes, location)
+	const promises = branch.map(({route, match}) => {
+		return route.loadData ? route.loadData(branch[0].match.params): Promise.resolve(null)
+	})
+	return Promise.all(promises)
+}
 
 // parse body params and attache them to req.body
 app.use(bodyParser.json())
@@ -49,23 +63,26 @@ app.use('/', mediaRoutes)
 app.get('*', (req, res) => {
 	const sheets = new ServerStyleSheets()
 	const context = {}
-	const markup = ReactDOMServer.renderToString(
-		sheets.collect(
-					<StaticRouter location={req.url} context={context}>
-						<ThemeProvider theme={theme}>
-							<MainRouter />
-						</ThemeProvider>
-					</StaticRouter>
-				)
+
+	loadBranchData(req.url).then(data => {
+		const markup = ReactDOMServer.renderToString(
+			sheets.collect(
+				<StaticRouter location={req.url} context={context}>
+					<ThemeProvider theme={theme}>
+						<MainRouter data={data}/>
+					</ThemeProvider>
+				</StaticRouter>
+			)
 		)
 		if (context.url) {
 			return res.redirect(303, context.url)
 		}
 		const css = sheets.toString()
-		res.status(200).send(Template({
-			markup: markup,
-			css: css
-		}))
+		res.status(200).send(Template({markup: markup, css: css}))
+	}).catch(err => {
+		res.status(500).send({"error": "Could not load voew with data"})
+	})
+	
 })
 
 // Catch unauthorised errors

@@ -8,8 +8,11 @@ import EditProfile from './user/EditProfile'
 import Profile from './user/Profile'
 import PrivateRoute from './auth/PrivateRoute'
 import Menu from './core/Menu'
+import NewMedia from './media/NewMedia'
+import PlayMedia from './media/PlayMedia'
+import EditMedia from './media/EditMedia'
 
-const MainRouter = () => {
+const MainRouter = ({data}) => {
 		return (
 			<div>
 				<Menu/>
